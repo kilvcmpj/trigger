@@ -1,29 +1,17 @@
-#!/bin/bash
+$nextToken = $null
+$workflows = @()
 
-NEXT_TOKEN=""
-WORKFLOWS=()
+do {
+    if ($null -eq $nextToken) {
+        $response = aws glue list-workflows | ConvertFrom-Json
+    } else {
+        $response = aws glue list-workflows --next-token $nextToken | ConvertFrom-Json
+    }
 
-while : ; do
-    if [ -z "$NEXT_TOKEN" ]; then
-        RESPONSE=$(aws glue list-workflows)
-    else
-        RESPONSE=$(aws glue list-workflows --next-token "$NEXT_TOKEN")
-    fi
+    $workflows += $response.Workflows
+    $nextToken = $response.NextToken
 
-    # Extract workflows from the response and append them to the WORKFLOWS array
-    NEW_WORKFLOWS=$(echo $RESPONSE | jq -r '.Workflows[]')
-    WORKFLOWS+=($NEW_WORKFLOWS)
-
-    # Extract NextToken
-    NEXT_TOKEN=$(echo $RESPONSE | jq -r '.NextToken')
-
-    # If there's no NextToken, break the loop
-    if [ "$NEXT_TOKEN" == "null" ]; then
-        break
-    fi
-done
+} while ($null -ne $nextToken)
 
 # Output all workflows
-for workflow in "${WORKFLOWS[@]}"; do
-    echo $workflow
-done
+$workflows | ForEach-Object { Write-Output $_ }
