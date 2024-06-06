@@ -1,36 +1,29 @@
-import csv
+#!/bin/bash
 
-def read_csv_and_create_dict(file_path, key_column, value_column):
-    # Initialize an empty dictionary of lists
-    key_value_dict = {}
-    
-    # Open the CSV file
-    with open(file_path, mode='r', newline='') as csv_file:
-        # Create a csv.DictReader object
-        csv_reader = csv.DictReader(csv_file)
-        
-        # Loop through each row in the CSV file
-        for row in csv_reader:
-            # Convert key and value to uppercase
-            key = row[key_column].upper()
-            value = row[value_column].toUpperCase()
-            
-            # If the key is already in the dictionary, append the value to the list
-            if key in key_value_dict:
-                key_value_dict[key].append(value)
-            else:
-                # Otherwise, create a new list for the key
-                key_value_dict[key] = [value]
-    
-    return key_value_dict
+NEXT_TOKEN=""
+WORKFLOWS=()
 
-# Specify the path to the CSV file
-csv_file_path = 'your_file.csv'
+while : ; do
+    if [ -z "$NEXT_TOKEN" ]; then
+        RESPONSE=$(aws glue list-workflows)
+    else
+        RESPONSE=$(aws glue list-workflows --next-token "$NEXT_TOKEN")
+    fi
 
-# Specify the key and value column names
-key_column_name = 'KeyColumn'
-value_column_name = 'ValueColumn'
+    # Extract workflows from the response and append them to the WORKFLOWS array
+    NEW_WORKFLOWS=$(echo $RESPONSE | jq -r '.Workflows[]')
+    WORKFLOWS+=($NEW_WORKFLOWS)
 
-# Call the function and print the resulting dictionary
-result_dict = read_csv_and_create_dict(csv_file_path, key_column_name, value_column_name)
-print(result_dict)
+    # Extract NextToken
+    NEXT_TOKEN=$(echo $RESPONSE | jq -r '.NextToken')
+
+    # If there's no NextToken, break the loop
+    if [ "$NEXT_TOKEN" == "null" ]; then
+        break
+    fi
+done
+
+# Output all workflows
+for workflow in "${WORKFLOWS[@]}"; do
+    echo $workflow
+done
